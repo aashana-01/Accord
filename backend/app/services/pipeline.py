@@ -6,9 +6,9 @@ If one step fails (e.g. Ollama is down) the rest still run and the error is repo
 """
 from sqlalchemy.orm import Session
 
-from app.models import Claim, Message
+from app.models import Message
 from app.services.ai import cached_result, message_payload
-from app.services.claim_extraction import extract_claims_with_ollama, save_claims
+from app.services.claim_extraction import extract_claims_with_ollama, prune_invalid_sources, save_claims
 from app.services.claim_review import merge_near_duplicates, review_claims
 from app.services.question_answer_linking import link_question_answers
 from app.services.segmentation import segment_channel
@@ -32,6 +32,7 @@ def analyze_channel(channel_id: str, db: Session, guild_id: str | None = None) -
                 db.query(Message).filter(Message.topic_id == topic.id).order_by(Message.timestamp.asc()).all()
             )
             steps = [
+                ("prune", lambda: prune_invalid_sources(topic.id, db)),
                 ("extract", lambda: save_claims(
                     topic.id,
                     cached_result(db, "extract_claims", {"messages": message_payload(messages[-100:], 3000)},
@@ -39,7 +40,7 @@ def analyze_channel(channel_id: str, db: Session, guild_id: str | None = None) -
                     db,
                 )),
                 ("merge", lambda: merge_near_duplicates(topic.id, db)),
-                ("link_answers", lambda: _link_answers_cached(topic.id, messages, db)),
+                ("link_answers", lambda: link_question_answers(topic.id, db)),
                 ("review", lambda: review_claims(topic.id, db)),
             ]
             for name, run in steps:
@@ -58,15 +59,3 @@ def analyze_channel(channel_id: str, db: Session, guild_id: str | None = None) -
         "topics": [{"id": t.id, "title": t.title} for t in topics],
         "errors": errors,
     }
-
-
-def _link_answers_cached(topic_id: str, messages: list[Message], db: Session):
-    questions = db.query(Claim).filter(Claim.topic_id == topic_id, Claim.kind == "question").all()
-    if not questions:
-        return None
-    payload = {
-        "questions": [{"id": q.id, "text": q.text, "sources": q.source_message_ids} for q in questions],
-        "messages": message_payload(messages[-100:]),
-    }
-    # link_question_answers writes its links to the database; the cache just skips repeat calls.
-    return cached_result(db, "link_answers", payload, lambda: link_question_answers(topic_id, db))

@@ -47,8 +47,10 @@ SEGMENT_SYSTEM = (
     "Return JSON matching the schema."
 )
 
-# A matched topic keeps its title unless more than this share of its messages is new.
+# A matched topic keeps its title unless more than this share of it is new...
 RENAME_WHEN_NEW_SHARE_ABOVE = float(os.getenv("RENAME_WHEN_NEW_SHARE_ABOVE", "0.5"))
+# ...or it lost more than this share of its old messages to other conversations (it was split).
+RENAME_WHEN_LOST_SHARE_ABOVE = float(os.getenv("RENAME_WHEN_LOST_SHARE_ABOVE", "0.2"))
 MAX_MESSAGES = 200
 
 
@@ -95,11 +97,13 @@ def clean_groups(result: dict, messages: list[Message]) -> list[dict]:
 
 
 def should_rename(old_ids: set[str], new_ids: set[str]) -> bool:
-    """Only rename when the conversation has really shifted: most of it is new material."""
-    if not new_ids:
-        return False
+    """Keep the title while a conversation just grows. Rename only when it has really shifted:
+    mostly new material, or a big chunk of it split off into other conversations."""
+    if not new_ids or not old_ids:
+        return bool(new_ids)
     new_share = len(new_ids - old_ids) / len(new_ids)
-    return new_share > RENAME_WHEN_NEW_SHARE_ABOVE
+    lost_share = len(old_ids - new_ids) / len(old_ids)
+    return new_share > RENAME_WHEN_NEW_SHARE_ABOVE or lost_share > RENAME_WHEN_LOST_SHARE_ABOVE
 
 
 def _delete_topic(topic: Topic, db: Session) -> None:
