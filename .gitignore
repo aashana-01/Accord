@@ -21,3 +21,24 @@ dist/
 # Operating system and editors
 .DS_Store
 .vscode/
+
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Frontend dependencies and builds
+node_modules/
+dist/

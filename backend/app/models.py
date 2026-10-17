@@ -74,3 +74,20 @@ class Claim(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     topic = relationship("Topic", back_populates="claims")
+
+
+class QuestionAnswerLink(Base):
+    __tablename__ = "question_answer_links"
+
+    id = Column(String, primary_key=True, default=generate_id)
+    topic_id = Column(
+        String, ForeignKey("topics.id", ondelete="CASCADE"), nullable=False
+    )
+    question_claim_id = Column(
+        String, ForeignKey("claims.id", ondelete="CASCADE"),
+        nullable=False, unique=True
+    )
+    answer_message_ids = Column(JSON, default=list, nullable=False)
+    confidence = Column(Integer, default=0, nullable=False)
+    rationale = Column(Text, default="", nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
