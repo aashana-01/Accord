@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+/* No background of our own: whatever Discord has behind us shows through */
+html,
+body,
+#root {
+  height: 100%;
+  background: transparent;
+}
+
+.react-flow {
+  --xy-background-color: transparent;
+  background: transparent;
+}
+
+/* New boxes fade and grow in */
+@keyframes node-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+.node-enter {
+  animation: node-in 300ms ease-out both;
+}
+
+/* No focus outline on boxes after clicking */
+.react-flow__node:focus,
+.react-flow__node:focus-visible {
+  outline: none;
+}
+
+/* The background wheel turns very slowly (off for people who prefer less motion) */
+@media (prefers-reduced-motion: no-preference) {
+  .wheel-spin {
+    animation: wheel-spin 120s linear infinite;
+  }
+}
+@keyframes wheel-spin {
+  to { transform: rotate(360deg); }
+}
