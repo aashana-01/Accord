@@ -2,23 +2,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ReactFlow, ReactFlowProvider, Controls, Panel, useReactFlow, type NodeMouseHandler } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { channel, claims, messages, topics } from '../mocks/mockData'
 import { focusLayout, overviewLayout } from '../layout'
 import { LogoNode, PointsNode, TopicNode, WheelNode } from './nodes'
 import FloatingEdge from './FloatingEdge'
 import { brand } from '../theme'
+import type { ChannelView } from '../types'
+import samurai from '../assets/samurai.png'
 
 const nodeTypes = { wheel: WheelNode, logo: LogoNode, topic: TopicNode, points: PointsNode }
 const edgeTypes = { floating: FloatingEdge }
 
-function MapCanvas() {
+function MapCanvas({ view }: { view: ChannelView }) {
+  const { channel, claims, messages, topics } = view
   const [focusId, setFocusId] = useState<string | null>(null)
   const { fitView } = useReactFlow()
   const focused = topics.find((t) => t.id === focusId) ?? null
 
   const { nodes, edges } = useMemo(
     () => (focused ? focusLayout(focused, claims, messages) : overviewLayout(channel.name, topics)),
-    [focused],
+    [focused, channel.name, claims, messages, topics],
   )
 
   // Frame the real boxes, not the big decorative wheel
@@ -80,12 +82,17 @@ function MapCanvas() {
       onNodeClick={onNodeClick}
     >
       <Panel position="top-left">
-        <div className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm shadow" style={{ backgroundColor: brand.logoCard, color: brand.text }}>
+        <div
+          className="flex items-center gap-2 rounded-lg py-1 pr-3 pl-1 text-sm shadow"
+          style={{ backgroundColor: brand.logoCard, color: brand.text }}
+        >
+          {/* Team logo; click it to go back to all conversations */}
           <button
             onClick={() => setFocusId(null)}
-            className={focused ? 'cursor-pointer hover:underline' : 'font-semibold'}
+            title={`#${channel.name}`}
+            className={focused ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}
           >
-            # {channel.name}
+            <img src={samurai} alt="SAMURAI" className="h-14 w-auto select-none" draggable={false} />
           </button>
           {focused && (
             <>
@@ -112,10 +119,10 @@ function MapCanvas() {
   )
 }
 
-export default function MindMap() {
+export default function MindMap({ view }: { view: ChannelView }) {
   return (
     <ReactFlowProvider>
-      <MapCanvas />
+      <MapCanvas view={view} />
     </ReactFlowProvider>
   )
 }

@@ -19,8 +19,9 @@ def topic_response(topic: Topic):
         "title": topic.title,
         "status": topic.content_status.lower(),
         "activity": topic.lifecycle_status.lower(),
+        "kind": topic.kind,
         "message_ids": [message.id for message in topic.messages],
-        "is_off_topic": False,
+        "is_off_topic": bool(topic.is_off_topic),
     }
 
 
@@ -31,6 +32,8 @@ def claim_response(claim: Claim):
         "kind": claim.kind,
         "text": claim.text,
         "source_ids": claim.source_message_ids,
+        "confidence": claim.confidence,
+        "superseded_by": claim.superseded_by_id,
     }
 
 

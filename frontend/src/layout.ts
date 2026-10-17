@@ -2,7 +2,7 @@
 import { MarkerType, type Edge, type Node } from '@xyflow/react'
 import type { Claim, ClaimKind, Message, Topic } from './types'
 import type { PointItem, PointsNodeType } from './components/nodes'
-import { brand, claimColor } from './theme'
+import { brand, claimColor, NOT_SURE_BELOW } from './theme'
 
 // Dashed white arrow pointing outward, like the mockup
 function arrow(id: string, source: string, target: string): Edge {
@@ -68,15 +68,22 @@ export function focusLayout(topic: Topic, allClaims: Claim[], messages: Message[
   const byId = new Map(messages.map((m) => [m.id, m]))
   const evidence = (ids: string[]) =>
     ids.map((id) => byId.get(id)).filter((m): m is Message => m !== undefined)
+  const claims = allClaims.filter((c) => c.topic_id === topic.id)
+  const ids = new Set(claims.map((c) => c.id))
+  // A replaced decision is shown crossed out under the decision that replaced it, not on its own.
+  const isReplaced = (c: Claim) => !!c.superseded_by && ids.has(c.superseded_by)
+  const current = claims.filter((c) => !isReplaced(c))
+
   const toItem = (c: Claim): PointItem => ({
     id: c.id,
     text: c.text,
     answer: c.answer,
+    notSure: (c.confidence ?? 100) < NOT_SURE_BELOW,
+    replaced: claims.filter((old) => old.superseded_by === c.id).map((old) => ({ id: old.id, text: old.text })),
     evidence: evidence([...c.source_ids, ...(c.answer_source_ids ?? [])]),
   })
 
-  const claims = allClaims.filter((c) => c.topic_id === topic.id)
-  const ofKind = (kind: ClaimKind) => claims.filter((c) => c.kind === kind)
+  const ofKind = (kind: ClaimKind) => current.filter((c) => c.kind === kind)
   const openQuestions = ofKind('question').filter((c) => !c.answer)
   const answered = ofKind('question').filter((c) => c.answer)
 
@@ -90,7 +97,7 @@ export function focusLayout(topic: Topic, allClaims: Claim[], messages: Message[
     groups.push({ title: 'For', kind: 'for', items: ofKind('for').map(toItem), empty: 'No supporting points yet' })
   } else {
     // A discussion gets one branch per point
-    for (const c of claims.filter((c) => c.kind !== 'question')) {
+    for (const c of current.filter((c) => c.kind !== 'question')) {
       groups.push({ title: singleTitle[c.kind], kind: c.kind, items: [toItem(c)] })
     }
   }

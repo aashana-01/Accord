@@ -116,6 +116,8 @@ export interface PointItem {
   id: string
   text: string
   answer?: string
+  notSure?: boolean // low AI confidence
+  replaced?: { id: string; text: string }[] // older decisions this one replaced
   evidence: Message[] // source messages, shown as quotes
 }
 
@@ -145,7 +147,19 @@ export function PointsNode({ data }: NodeProps<PointsNodeType>) {
         <ul className="mt-2 space-y-2">
           {data.items.map((item) => (
             <li key={item.id}>
-              <div className="text-sm">{item.text}</div>
+              <div className="text-sm">
+                {item.text}
+                {item.notSure && (
+                  <span className="ml-1.5 align-middle">
+                    <Chip value="not sure" color="#B45309" />
+                  </span>
+                )}
+              </div>
+              {item.replaced?.map((old) => (
+                <div key={old.id} className="mt-0.5 text-xs" style={{ color: brand.textMuted }}>
+                  Replaced: <span className="line-through">{old.text}</span>
+                </div>
+              ))}
               {item.answer && (
                 <div className="mt-0.5 text-sm">
                   <span className="font-semibold" style={{ color: claimColor.decision }}>

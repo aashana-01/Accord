@@ -28,6 +28,7 @@ const raw: [number, string, string, string | null, string][] = [
   [182, 'Pearl', 'yeah, one process is simpler', 'm20', 'stack'],
   [185, 'Shriya', 'still need to compare accuracy before we commit to AI', 'm16', 'ai'],
   [186, 'Pearl', "what's the API cost per 1k messages?", 'm11', 'ai'],
+  [9, 'Aashana', "ok let's just do Node for the backend then", 'm4', 'stack'],
 ]
 
 export const channel = { name: 'planning' }
@@ -62,9 +63,10 @@ export const claims: Claim[] = [
   { id: 'c5', topic_id: 't-stack', kind: 'proposal', text: 'React + TS front, FastAPI back', source_ids: ['m4', 'm6'] },
   { id: 'c6', topic_id: 't-stack', kind: 'decision', text: 'React + TS front, FastAPI back', source_ids: ['m18', 'm19'] },
   { id: 'c7', topic_id: 't-stack', kind: 'question', text: 'Should the bot run in the same process as FastAPI?', source_ids: ['m20'], answer: 'Yes, one process is simpler', answer_source_ids: ['m21'] },
+  { id: 'c15', topic_id: 't-stack', kind: 'decision', text: 'Use Node for the backend', source_ids: ['m24'], superseded_by: 'c6' },
   // AI API (argument)
   { id: 'c8', topic_id: 't-ai', kind: 'proposal', text: 'Use an AI API for extraction', source_ids: ['m7'] },
-  { id: 'c9', topic_id: 't-ai', kind: 'for', text: 'Faster than writing rules', source_ids: ['m10'] },
+  { id: 'c9', topic_id: 't-ai', kind: 'for', text: 'Faster than writing rules', source_ids: ['m10'], confidence: 55 },
   { id: 'c10', topic_id: 't-ai', kind: 'against', text: 'Costs money, outputs change every run', source_ids: ['m11'] },
   { id: 'c11', topic_id: 't-ai', kind: 'for', text: 'Deterministic first, AI on top, still works offline', source_ids: ['m16'] },
   { id: 'c12', topic_id: 't-ai', kind: 'question', text: 'How accurate is it compared to rules?', source_ids: ['m22'] },

@@ -35,6 +35,9 @@ class Topic(Base):
     guild_id = Column(String(30), nullable=True)
     channel_id = Column(String(30), nullable=True)
     message_count = Column(Integer, default=0, nullable=False)
+    # Set by AI segmentation: "argument" (for vs. against) or "discussion"
+    kind = Column(String(20), default="discussion", nullable=False)
+    is_off_topic = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     last_activity = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
@@ -56,6 +59,7 @@ class Message(Base):
     content = Column(Text, nullable=False)
     timestamp = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     reply_to_id = Column(String(30), ForeignKey("messages.id"), nullable=True)
+    edited = Column(Boolean, default=False, nullable=False)
 
     topic = relationship("Topic", back_populates="messages")
 
@@ -71,6 +75,10 @@ class Claim(Base):
     text = Column(Text, nullable=False)
     source_message_ids = Column(JSON, default=list, nullable=False)
     verified = Column(Boolean, default=False, nullable=False)
+    # 0-100 from the AI review pass; below NOT_SURE_BELOW the UI marks it "Not sure"
+    confidence = Column(Integer, default=100, nullable=False)
+    # A decision replaced by a newer decision points at the newer one
+    superseded_by_id = Column(String, ForeignKey("claims.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     topic = relationship("Topic", back_populates="claims")
@@ -90,4 +98,19 @@ class QuestionAnswerLink(Base):
     answer_message_ids = Column(JSON, default=list, nullable=False)
     confidence = Column(Integer, default=0, nullable=False)
     rationale = Column(Text, default="", nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+
+class AICache(Base):
+    """Stores AI results keyed by a hash of their exact input.
+
+    Same messages in -> same result out, with no new AI call. Makes reruns
+    instant and lets the demo work even if Ollama is down.
+    """
+
+    __tablename__ = "ai_cache"
+
+    key = Column(String(64), primary_key=True)
+    task = Column(String(50), nullable=False)
+    result = Column(JSON, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)

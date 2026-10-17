@@ -4,8 +4,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import models
 from app.db import Base, engine
 from app.api.topics import router as topics_router
+from app.api.channels import router as channels_router
+from app.migrations import ensure_columns
 
 Base.metadata.create_all(bind=engine)
+ensure_columns()  # adds new columns to an older accord.db
 
 app = FastAPI(
     title="Accord API",
@@ -18,6 +21,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -25,6 +30,7 @@ app.add_middleware(
 )
 
 app.include_router(topics_router)
+app.include_router(channels_router)
 
 
 @app.get("/")

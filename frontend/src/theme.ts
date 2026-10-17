@@ -20,6 +20,9 @@ export const brand = {
   tag: 'MACS-HACKS · Reinvent the Wheel',
 }
 
+// Below this AI confidence, a point gets a "Not sure" tag (matches the backend's NOT_SURE_BELOW)
+export const NOT_SURE_BELOW = 60
+
 // ---------- Chip labels shown on each conversation ----------
 // Change the words on the left of the colon here.
 export const chipLabel = {
@@ -66,4 +69,5 @@ export const meaning: Record<string, string> = {
   argument: 'A for vs. against debate',
   discussion: 'Ideas and preferences, no clear sides',
   'off-topic': "Not about this channel's main work",
+  'not sure': "The AI isn't confident about this one. Check the source messages.",
 }

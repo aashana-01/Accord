@@ -1,10 +1,14 @@
+import asyncio
 import os
 import discord
 from discord import app_commands
 from dotenv import load_dotenv
 
 from app.db import Base, engine, SessionLocal
-from app.models import Topic, Message
+from app.models import Message
+from app.migrations import ensure_columns
+from app.bot.message_sync import apply_delete, apply_edit, is_human
+from app.services.pipeline import analyze_channel
 
 load_dotenv()
 
@@ -12,6 +16,7 @@ TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 # Make sure the existing database tables are initialized.
 Base.metadata.create_all(bind=engine)
+ensure_columns()
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -51,7 +56,7 @@ async def accord(
                 limit=limit,
                 oldest_first=True,
             )
-            if not message.author.bot
+            if is_human(message.author)
         ]
     except (discord.Forbidden, discord.HTTPException):
         await interaction.followup.send(
@@ -67,27 +72,22 @@ async def accord(
         )
         return
 
-    # Save the imported conversation using the existing SQLAlchemy models.
+    # Save only messages we haven't seen before. Re-running /accord is safe
+    # (no duplicate-ID crash) and only new messages are added.
     db = SessionLocal()
 
     try:
-        topic = Topic(
-            title=f"Import from #{channel.name}",
-            summary="Recent Discord messages imported by Accord.",
-            content_status="Open",
-            lifecycle_status="Active",
-            guild_id=str(interaction.guild.id),
-            channel_id=str(channel.id),
-            message_count=len(discord_messages),
-        )
+        incoming_ids = [str(m.id) for m in discord_messages]
+        known_ids = {
+            row[0]
+            for row in db.query(Message.id).filter(Message.id.in_(incoming_ids)).all()
+        }
+        new_messages = [m for m in discord_messages if str(m.id) not in known_ids]
 
-        db.add(topic)
-        db.flush()  # Assign the topic its database ID.
-
-        for discord_message in discord_messages:
-            saved_message = Message(
+        for discord_message in new_messages:
+            db.add(Message(
                 id=str(discord_message.id),
-                topic_id=topic.id,
+                topic_id=None,  # the AI assigns a conversation in the next step
                 guild_id=str(interaction.guild.id),
                 channel_id=str(channel.id),
                 author_id=str(discord_message.author.id),
@@ -100,26 +100,64 @@ async def accord(
                     and discord_message.reference.message_id
                     else None
                 ),
-            )
-            db.add(saved_message)
+            ))
 
         db.commit()
-        topic_id = topic.id
-
     except Exception:
         db.rollback()
         raise
     finally:
         db.close()
 
+    # Split into conversations, name them, extract claims (slow AI work runs off the event loop).
+    def run_analysis():
+        session = SessionLocal()
+        try:
+            return analyze_channel(str(channel.id), session, str(interaction.guild.id))
+        finally:
+            session.close()
+
+    result = await asyncio.to_thread(run_analysis)
+    titles = "\n".join(f"- {t['title']}" for t in result["topics"]) or "- (none)"
+
+    if result["conversations"] < 2:
+        note = "One conversation is not sufficient for a mind map execution."
+    else:
+        note = "Mind map is ready."
+    if result["errors"]:
+        note += f"\n⚠️ {len(result['errors'])} step(s) failed; check the backend terminal."
+        for error in result["errors"]:
+            print(f"Accord analysis error: {error}")
+
     await interaction.followup.send(
-        f"**Accord import complete!**\n"
+        f"**Accord analysis complete!**\n"
         f"- Channel: {channel.mention}\n"
-        f"- Messages imported: {len(discord_messages)}\n"
-        f"- Topic ID: `{topic_id}`\n\n"
-        "These messages are saved. AI claim extraction is the next step.",
+        f"- New messages: {len(new_messages)} (skipped {len(known_ids)} already saved)\n"
+        f"- Conversations found: {result['conversations']}\n{titles}\n\n{note}",
         ephemeral=True,
     )
+
+
+@client.event
+async def on_raw_message_edit(payload: discord.RawMessageUpdateEvent):
+    content = payload.data.get("content")
+    author = payload.data.get("author") or {}
+    if content is None or author.get("bot"):
+        return
+    db = SessionLocal()
+    try:
+        apply_edit(db, str(payload.message_id), content)
+    finally:
+        db.close()
+
+
+@client.event
+async def on_raw_message_delete(payload: discord.RawMessageDeleteEvent):
+    db = SessionLocal()
+    try:
+        apply_delete(db, str(payload.message_id))
+    finally:
+        db.close()
 
 
 @client.event

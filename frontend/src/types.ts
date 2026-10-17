@@ -32,4 +32,14 @@ export interface Claim {
   source_ids: string[] // the messages that prove this claim
   answer?: string // questions only: filled in once someone answers
   answer_source_ids?: string[]
+  confidence?: number // 0-100 from the AI review; low = shown as "Not sure"
+  superseded_by?: string | null // a decision replaced by a newer decision points at it
+}
+
+// Everything the mind map needs for one channel (GET /channels/{id}/view)
+export interface ChannelView {
+  channel: { id?: string; name: string }
+  messages: Message[]
+  topics: Topic[]
+  claims: Claim[]
 }
