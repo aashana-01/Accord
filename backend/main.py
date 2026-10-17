@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app import models
+from app.db import Base, engine
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Accord API",
