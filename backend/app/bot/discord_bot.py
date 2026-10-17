@@ -1,5 +1,6 @@
 import asyncio
 import os
+from urllib.parse import quote
 import discord
 from discord import app_commands
 from dotenv import load_dotenv
@@ -13,6 +14,8 @@ from app.services.pipeline import analyze_channel
 load_dotenv()
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+# Where the mind map runs (the frontend dev server for now)
+MAP_URL = os.getenv("ACCORD_MAP_URL", "http://localhost:5173")
 
 # Make sure the existing database tables are initialized.
 Base.metadata.create_all(bind=engine)
@@ -123,7 +126,7 @@ async def accord(
     if result["conversations"] < 2:
         note = "One conversation is not sufficient for a mind map execution."
     else:
-        note = "Mind map is ready."
+        note = f"Mind map is ready: {MAP_URL}/?channel={channel.id}&name={quote(channel.name)}"
     if result["errors"]:
         note += f"\n⚠️ {len(result['errors'])} step(s) failed; check the backend terminal."
         for error in result["errors"]:
