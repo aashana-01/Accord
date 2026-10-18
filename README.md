@@ -2,7 +2,7 @@
   <img src="frontend/src/assets/accord-logo.png" alt="Accord logo" width="120">
 </p>
 
-<h1 align="center">Accord</h1>
+<h1 align="center">Accord[Winner-MACS-HACKS'26]</h1>
 
 <p align="center">
   <b>From the noise of discussions to the clarity of decisions.</b><br>
