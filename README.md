@@ -175,7 +175,7 @@ Accord/
 DISCORD_BOT_TOKEN=your-bot-token
 OLLAMA_MODEL=llama3.2:3b
 ACCORD_MAP_URL=http://localhost:5173
-DORMANT_AFTER_SECONDS=120   # optional, short for demos
+DORMANT_AFTER_SECONDS=120  
 ```
 
 `frontend/.env`
