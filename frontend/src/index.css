@@ -1,39 +1,186 @@
 @import "tailwindcss";
 
-/* No background of our own: whatever Discord has behind us shows through */
+/* ---------- Themes ----------
+   Every color the app uses is a variable here, so light/dark is one switch.
+   Contrast for every text pair was checked against WCAG AA (4.5:1). */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --app-bg: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px) 0 0 / 22px 22px,
+    radial-gradient(circle at center, #4a0a1e 0%, #2a0612 55%, #12030a 100%);
+  --on-bg: #f6edef;
+  --on-bg-muted: #d9c6cc;
+  --branch: #ffffff;
+  --wheel: rgba(255, 255, 255, 0.08);
+  --header-bg: #1a0710;
+  --header-fg: #f6edef;
+  --header-border: rgba(255, 255, 255, 0.14);
+  --surface: #24101a;
+  --surface-2: #30161f;
+  --surface-fg: #f6edef;
+  --surface-muted: #cdb8bf;
+  --border: rgba(255, 255, 255, 0.18);
+  --accent: #e9c46a; /* gold on wine */
+  --on-accent: #2b0012;
+  --focus: #ffd166;
+  --card: #efe6e7;
+  --card-dormant: #d8cacd;
+  --card-border: transparent;
+  --danger: #fca5a5;
+  --success: #86efac;
+  --overlay: rgba(10, 2, 6, 0.6);
+}
+
+:root[data-theme="light"],
+.theme-light {
+  color-scheme: light;
+  --app-bg: radial-gradient(rgba(59, 0, 25, 0.07) 1px, transparent 1px) 0 0 / 22px 22px,
+    radial-gradient(circle at center, #ffffff 0%, #f7f0ec 60%, #efe3de 100%);
+  --on-bg: #3b0019;
+  --on-bg-muted: #5c3a48;
+  --branch: #7a1b3d;
+  --wheel: rgba(59, 0, 25, 0.08);
+  --header-bg: #ffffff;
+  --header-fg: #3b0019;
+  --header-border: #e7d9dd;
+  --surface: #ffffff;
+  --surface-2: #f7f0ec;
+  --surface-fg: #2b0012;
+  --surface-muted: #6b5560;
+  --border: #e2d2d7;
+  --accent: #7a1b3d;
+  --on-accent: #ffffff;
+  --focus: #3b0019;
+  --card: #ffffff;
+  --card-dormant: #ede3e6;
+  --card-border: #e2d2d7;
+  --danger: #b91c1c;
+  --success: #15803d;
+  --overlay: rgba(43, 0, 18, 0.35);
+}
+
 html,
 body,
 #root {
   height: 100%;
-  background: transparent;
+  margin: 0;
 }
 
+body {
+  background: var(--header-bg);
+  color: var(--surface-fg);
+}
+
+/* Visible focus for keyboard users everywhere (mouse clicks don't show it) */
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* .sr-only comes from Tailwind (so sm:not-sr-only can undo it) */
+
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 100;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.skip-link:focus {
+  top: 8px;
+}
+
+/* ---------- Mind map ---------- */
 .react-flow {
   --xy-background-color: transparent;
   background: transparent;
 }
-
-/* New boxes fade and grow in */
-@keyframes node-in {
-  from { opacity: 0; transform: scale(0.85); }
-  to { opacity: 1; transform: scale(1); }
-}
-.node-enter {
-  animation: node-in 300ms ease-out both;
-}
-
-/* No focus outline on boxes after clicking */
 .react-flow__node:focus,
 .react-flow__node:focus-visible {
   outline: none;
 }
+.react-flow__controls-button {
+  background: var(--surface);
+  color: var(--surface-fg);
+  border-color: var(--border);
+}
+.react-flow__controls-button:hover {
+  background: var(--surface-2);
+}
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
 
-/* The background wheel turns very slowly (off for people who prefer less motion) */
-@media (prefers-reduced-motion: no-preference) {
-  .wheel-spin {
-    animation: wheel-spin 120s linear infinite;
-  }
+@keyframes node-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
 }
 @keyframes wheel-spin {
   to { transform: rotate(360deg); }
+}
+@keyframes panel-in {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Motion only for people who haven't asked their computer to reduce it */
+@media (prefers-reduced-motion: no-preference) {
+  .node-enter { animation: node-in 300ms ease-out both; }
+  .wheel-spin { animation: wheel-spin 120s linear infinite; }
+  .panel-enter { animation: panel-in 200ms ease-out both; }
+}
+
+/* ---------- Shared controls ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.btn-ghost {
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover {
+  background: var(--surface-2);
+}
+.field {
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--surface-fg);
+  font-size: 14px;
+}
+.label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.hint {
+  font-size: 12px;
+  color: var(--surface-muted);
 }

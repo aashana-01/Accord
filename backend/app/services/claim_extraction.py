@@ -115,6 +115,8 @@ def prune_invalid_sources(topic_id: str, db: Session) -> int:
     valid_ids = {row[0] for row in db.query(Message.id).filter(Message.topic_id == topic_id).all()}
     removed = 0
     for claim in db.query(Claim).filter(Claim.topic_id == topic_id).all():
+        if (claim.origin or "ai") != "ai":
+            continue  # poll results cite a Discord poll, not chat messages
         kept = [s for s in (claim.source_message_ids or []) if s in valid_ids]
         if kept == (claim.source_message_ids or []):
             continue

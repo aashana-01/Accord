@@ -1,5 +1,5 @@
 // Works out where every box goes, for the overview and for a zoomed-in topic.
-import { MarkerType, type Edge, type Node } from '@xyflow/react'
+import type { Edge, Node } from '@xyflow/react'
 import type { Claim, ClaimKind, Message, Topic } from './types'
 import type { PointItem, PointsNodeType } from './components/nodes'
 import { brand, claimColor, NOT_SURE_BELOW } from './theme'
@@ -12,7 +12,6 @@ function arrow(id: string, source: string, target: string): Edge {
     target,
     type: 'floating',
     style: { stroke: brand.branch, strokeWidth: 2, strokeDasharray: '6 6' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: brand.branch, width: 18, height: 18 },
   }
 }
 
@@ -32,11 +31,58 @@ function ring(count: number, rx: number, ry: number) {
   })
 }
 
+// ---- Rough box sizes, so branches can be pushed apart instead of overlapping ----
+const lines = (text: string, perLine: number) => Math.max(1, Math.ceil(text.length / perLine))
+
+function pointsHeight(data: PointsNodeType['data']): number {
+  if (data.items.length === 0) return 90
+  let h = 60 // padding + header
+  for (const item of data.items) {
+    h += lines(item.text, 28) * 22 + 8
+    if (item.notSure || item.fromPoll) h += 14
+    h += (item.replaced?.length ?? 0) * 18
+    if (item.answer) h += lines(item.answer, 30) * 20
+    h += item.evidence.length * 18
+  }
+  return h
+}
+
+function topicHeight(topic: Topic, proposals: Claim[]): number {
+  let h = 150 + lines(topic.title, 24) * 22
+  if (proposals.length) h += 20 + proposals.reduce((n, p) => n + lines(p.text, 26) * 22 + 8, 0)
+  return h
+}
+
+type Rect = { x: number; y: number; w: number; h: number } // centered on x,y
+const GAP = 48
+const overlaps = (a: Rect, b: Rect) =>
+  Math.abs(a.x - b.x) < (a.w + b.w) / 2 + GAP && Math.abs(a.y - b.y) < (a.h + b.h) / 2 + GAP
+
+/** Slide each box outward along its spoke until it clears the center box and the boxes already placed. */
+function spreadOut(spots: { x: number; y: number }[], sizes: { w: number; h: number }[], center: Rect) {
+  const placed: Rect[] = [center]
+  return spots.map((spot, i) => {
+    const len = Math.hypot(spot.x, spot.y) || 1
+    const dx = spot.x / len
+    const dy = spot.y / len
+    const r: Rect = { ...spot, ...sizes[i] }
+    for (let step = 0; step < 200 && placed.some((p) => overlaps(r, p)); step++) {
+      r.x += dx * 20
+      r.y += dy * 20
+    }
+    placed.push(r)
+    return { x: r.x, y: r.y }
+  })
+}
+
 // The faint wheel always sits behind whatever is in the center
 const wheel: Node = { id: 'wheel', type: 'wheel', position: { x: 0, y: 0 }, data: {}, zIndex: -1, selectable: false, focusable: false }
 
+// Per-topic extras the map adds to each box (open action, task and poll counts)
+export type TopicExtras = (topicId: string) => { onOpen: () => void; taskCount: number; pollCount: number }
+
 // Overview: logo in the middle, conversations in two columns around it.
-export function overviewLayout(channelName: string, topics: Topic[]) {
+export function overviewLayout(channelName: string, topics: Topic[], extras: TopicExtras) {
   const spots = columns(topics.length)
 
   const nodes: Node[] = [
@@ -46,7 +92,7 @@ export function overviewLayout(channelName: string, topics: Topic[]) {
       id: topic.id,
       type: 'topic',
       position: spots[i],
-      data: { topic, focused: false, proposals: [] },
+      data: { topic, focused: false, proposals: [], ...extras(topic.id) },
     })),
   ]
 
@@ -64,7 +110,7 @@ const singleTitle: Record<ClaimKind, string> = {
 }
 
 // Zoomed in: the topic moves to the middle, its points branch out around it.
-export function focusLayout(topic: Topic, allClaims: Claim[], messages: Message[]) {
+export function focusLayout(topic: Topic, allClaims: Claim[], messages: Message[], extras: TopicExtras) {
   const byId = new Map(messages.map((m) => [m.id, m]))
   const evidence = (ids: string[]) =>
     ids.map((id) => byId.get(id)).filter((m): m is Message => m !== undefined)
@@ -79,6 +125,7 @@ export function focusLayout(topic: Topic, allClaims: Claim[], messages: Message[
     text: c.text,
     answer: c.answer,
     notSure: (c.confidence ?? 100) < NOT_SURE_BELOW,
+    fromPoll: c.origin === 'poll',
     replaced: claims.filter((old) => old.superseded_by === c.id).map((old) => ({ id: old.id, text: old.text })),
     evidence: evidence([...c.source_ids, ...(c.answer_source_ids ?? [])]),
   })
@@ -118,12 +165,17 @@ export function focusLayout(topic: Topic, allClaims: Claim[], messages: Message[
     )
   }
 
-  const spots = ring(groups.length, Math.max(430, groups.length * 95), Math.max(320, groups.length * 70))
   const proposals = topic.kind === 'argument' ? ofKind('proposal') : []
+  const center: Rect = { x: 0, y: 0, w: 320, h: topicHeight(topic, proposals) }
+  const spots = spreadOut(
+    ring(groups.length, Math.max(430, groups.length * 95), Math.max(320, groups.length * 70)),
+    groups.map((g) => ({ w: 256, h: pointsHeight(g) })),
+    center,
+  )
 
   const nodes: Node[] = [
     wheel,
-    { id: topic.id, type: 'topic', position: { x: 0, y: 0 }, data: { topic, focused: true, proposals } },
+    { id: topic.id, type: 'topic', position: { x: 0, y: 0 }, data: { topic, focused: true, proposals, ...extras(topic.id) } },
     ...groups.map((data, i) => ({ id: `${topic.id}-g${i}`, type: 'points', position: spots[i], data })),
   ]
 

@@ -6,7 +6,7 @@ from discord import app_commands
 from dotenv import load_dotenv
 
 from app.db import Base, engine, SessionLocal
-from app.models import Message
+from app.models import ChannelInfo, Message
 from app.migrations import ensure_columns
 from app.bot.message_sync import apply_delete, apply_edit, is_human
 from app.services.pipeline import analyze_channel
@@ -74,6 +74,19 @@ async def accord(
             ephemeral=True,
         )
         return
+
+    # Remember the server and channel names for the web page's header.
+    info_db = SessionLocal()
+    try:
+        info_db.merge(ChannelInfo(
+            channel_id=str(channel.id),
+            guild_id=str(interaction.guild.id),
+            guild_name=interaction.guild.name,
+            channel_name=getattr(channel, "name", ""),
+        ))
+        info_db.commit()
+    finally:
+        info_db.close()
 
     # Save only messages we haven't seen before. Re-running /accord is safe
     # (no duplicate-ID crash) and only new messages are added.

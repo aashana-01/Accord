@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Claim, Message, QuestionAnswerLink, Topic
+from app.models import ChannelInfo, Claim, Message, QuestionAnswerLink, Topic
 from app.services.ai import NOT_SURE_BELOW
 from app.services.pipeline import analyze_channel
 
@@ -42,6 +42,7 @@ def channel_view(channel_id: str, name: str = "channel", db: Session = Depends(g
             "source_ids": c.source_message_ids or [],
             "confidence": c.confidence,
             "superseded_by": c.superseded_by_id,
+            "origin": c.origin or "ai",
         }
         link = links.get(c.id)
         # An unsure answer leaves the question open instead of stating a guess as fact.
@@ -53,8 +54,10 @@ def channel_view(channel_id: str, name: str = "channel", db: Session = Depends(g
                 out["answer_source_ids"] = [m.id for m in answer_msgs]
         return out
 
+    info = db.get(ChannelInfo, channel_id)
     return {
-        "channel": {"id": channel_id, "name": name},
+        "channel": {"id": channel_id, "name": (info.channel_name if info and info.channel_name else name),
+                    "guild": info.guild_name if info else "", "guild_id": info.guild_id if info else None},
         "messages": [
             {"id": m.id, "author": m.author_name, "timestamp": m.timestamp.isoformat(),
              "content": m.content, "reply_to": m.reply_to_id, "topic_id": m.topic_id}

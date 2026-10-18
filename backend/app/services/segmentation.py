@@ -7,7 +7,7 @@ import os
 
 from sqlalchemy.orm import Session
 
-from app.models import Claim, Message, QuestionAnswerLink, Topic
+from app.models import Claim, Message, Poll, QuestionAnswerLink, Task, Topic
 from app.services.ai import ask_ollama, cached_result, message_payload
 
 SEGMENT_SCHEMA = {
@@ -107,6 +107,9 @@ def should_rename(old_ids: set[str], new_ids: set[str]) -> bool:
 
 
 def _delete_topic(topic: Topic, db: Session) -> None:
+    # Polls and tasks outlive a regrouped conversation; they just lose the link.
+    db.query(Poll).filter(Poll.topic_id == topic.id).update({Poll.topic_id: None, Poll.claim_id: None})
+    db.query(Task).filter(Task.topic_id == topic.id).update({Task.topic_id: None, Task.claim_id: None})
     db.query(QuestionAnswerLink).filter(QuestionAnswerLink.topic_id == topic.id).delete()
     db.query(Claim).filter(Claim.topic_id == topic.id).delete()
     db.delete(topic)

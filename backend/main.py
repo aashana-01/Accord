@@ -5,6 +5,7 @@ from app import models
 from app.db import Base, engine
 from app.api.topics import router as topics_router
 from app.api.channels import router as channels_router
+from app.api.workspace import router as workspace_router
 from app.migrations import ensure_columns
 
 Base.metadata.create_all(bind=engine)
@@ -25,12 +26,13 @@ app.add_middleware(
         "http://localhost:5175",
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["*"],  # GET, POST, PATCH, DELETE
     allow_headers=["*"],
 )
 
 app.include_router(topics_router)
 app.include_router(channels_router)
+app.include_router(workspace_router)
 
 
 @app.get("/")

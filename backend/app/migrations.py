@@ -16,6 +16,7 @@ NEW_COLUMNS = {
     "claims": {
         "confidence": "INTEGER NOT NULL DEFAULT 100",
         "superseded_by_id": "VARCHAR",
+        "origin": "VARCHAR(20) NOT NULL DEFAULT 'ai'",
     },
     "messages": {
         "edited": "BOOLEAN NOT NULL DEFAULT 0",

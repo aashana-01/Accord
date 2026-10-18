@@ -57,8 +57,11 @@ def merge_near_duplicates(topic_id: str, db: Session) -> int:
     removed = 0
     kept: list[Claim] = []
     for claim in claims:
+        if (claim.origin or "ai") != "ai":
+            kept.append(claim)
+            continue
         twin = next(
-            (k for k in kept if k.kind == claim.kind
+            (k for k in kept if k.kind == claim.kind and (k.origin or "ai") == "ai"
              and difflib.SequenceMatcher(None, _norm(k.text), _norm(claim.text)).ratio() >= SIMILAR_ENOUGH),
             None,
         )
@@ -108,7 +111,7 @@ def review_claims(topic_id: str, db: Session) -> dict:
     reviewed = superseded = 0
     for item in result.get("reviews", []) if isinstance(result, dict) else []:
         claim = by_id.get(item.get("claim_id")) if isinstance(item, dict) else None
-        if claim is None:
+        if claim is None or (claim.origin or "ai") != "ai":
             continue
         conf = item.get("confidence")
         if isinstance(conf, int):

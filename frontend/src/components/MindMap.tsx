@@ -1,26 +1,41 @@
-// The mind map: overview of all conversations, click one to enter it, Esc to go back.
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ReactFlow, ReactFlowProvider, Controls, Panel, useReactFlow, type NodeMouseHandler } from '@xyflow/react'
+// The mind map: overview of all conversations, open one to see its points, Esc to go back.
+// Keyboard: Tab moves between conversation boxes, Enter opens one, Esc goes back.
+import { useCallback, useEffect, useMemo } from 'react'
+import { ReactFlow, ReactFlowProvider, Controls, Panel, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { focusLayout, overviewLayout } from '../layout'
+import { focusLayout, overviewLayout, type TopicExtras } from '../layout'
 import { LogoNode, PointsNode, TopicNode, WheelNode } from './nodes'
 import FloatingEdge from './FloatingEdge'
 import { brand } from '../theme'
-import type { ChannelView } from '../types'
-import samurai from '../assets/samurai.png'
+import { useWorkspace } from '../state/workspace'
+import { useI18n } from '../state/i18n'
 
 const nodeTypes = { wheel: WheelNode, logo: LogoNode, topic: TopicNode, points: PointsNode }
 const edgeTypes = { floating: FloatingEdge }
+const noop = () => {}
 
-function MapCanvas({ view }: { view: ChannelView }) {
+function MapCanvas() {
+  const { view, focusId, setFocusId, tasks, polls, theme } = useWorkspace()
   const { channel, claims, messages, topics } = view
-  const [focusId, setFocusId] = useState<string | null>(null)
   const { fitView } = useReactFlow()
+  const { t } = useI18n()
   const focused = topics.find((t) => t.id === focusId) ?? null
 
+  const extras = useCallback<TopicExtras>(
+    (id) => ({
+      onOpen: () => setFocusId(focusId === id ? null : id),
+      taskCount: tasks.filter((t) => t.topic_id === id && t.status !== 'done').length,
+      pollCount: polls.filter((p) => p.topic_id === id).length,
+    }),
+    [focusId, setFocusId, tasks, polls],
+  )
+
   const { nodes, edges } = useMemo(
-    () => (focused ? focusLayout(focused, claims, messages) : overviewLayout(channel.name, topics)),
-    [focused, channel.name, claims, messages, topics],
+    () =>
+      focused
+        ? focusLayout(focused, claims, messages, extras)
+        : overviewLayout(channel.name, topics, extras),
+    [focused, channel.name, claims, messages, topics, extras],
   )
 
   // Frame the real boxes, not the big decorative wheel
@@ -33,96 +48,108 @@ function MapCanvas({ view }: { view: ChannelView }) {
   useEffect(() => {
     const timer = setTimeout(() => fitView({ ...fitOptions, duration: 600 }), 60)
     return () => clearTimeout(timer)
-  }, [fitOptions, fitView])
+  }, [focusId, fitOptions, fitView])
 
-  // Esc goes back to the overview
+  // Esc goes back to the overview (unless a dialog is open; it handles Esc itself)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setFocusId(null)
+      if (e.key === 'Escape' && !document.querySelector('[aria-modal="true"]')) setFocusId(null)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [setFocusId])
 
-  const onNodeClick: NodeMouseHandler = useCallback(
-    (_, node) => {
-      if (node.type !== 'topic') return
-      if (focusId) {
-        if (node.id === focusId) setFocusId(null) // clicking the center box goes back
-        return
-      }
-      setFocusId(node.id)
-    },
-    [focusId],
-  )
+  const branches = nodes.filter((n) => n.type === 'points').length
+  const announcement = focused
+    ? `${t(focused.title)}: ${branches} ${t(branches === 1 ? 'branch' : 'branches')}. ${t('Press Escape to go back.')}`
+    : `${t('All conversations')} (${topics.length}) · #${channel.name}`
 
   // The bot should not call the map for fewer than 2 conversations, but never show a broken screen
   if (topics.length < 2) {
     return (
-      <div className="flex h-full items-center justify-center text-gray-300">
-        {topics.length === 0 ? 'No conversations found yet.' : 'One conversation is not sufficient for a mind map.'}
+      <div className="flex h-full items-center justify-center p-6 text-center" style={{ color: 'var(--on-bg)' }}>
+        {t(topics.length === 0 ? 'No conversations found yet.' : 'One conversation is not sufficient for a mind map.')}
       </div>
     )
   }
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
-      nodeOrigin={[0.5, 0.5]}
-      colorMode="dark"
-      fitView
-      fitViewOptions={fitOptions}
-      minZoom={0.2}
-      nodesDraggable={false}
-      nodesConnectable={false}
-      elementsSelectable={false}
-      onNodeClick={onNodeClick}
-    >
-      <Panel position="top-left">
-        <div
-          className="flex items-center gap-2 rounded-lg py-1 pr-3 pl-1 text-sm shadow"
-          style={{ backgroundColor: brand.logoCard, color: brand.text }}
-        >
-          {/* Team logo; click it to go back to all conversations */}
-          <button
-            onClick={() => setFocusId(null)}
-            title={`#${channel.name}`}
-            className={focused ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}
+    <>
+      <p className="sr-only" aria-live="polite">
+        {announcement}
+      </p>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        nodeOrigin={[0.5, 0.5]}
+        colorMode={theme}
+        fitView
+        fitViewOptions={fitOptions}
+        minZoom={0.2}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        nodesFocusable={false}
+        edgesFocusable={false}
+        elementsSelectable={false}
+        // React Flow ignores mouse clicks on boxes unless a click handler exists. The button inside
+        // each conversation box does the actual opening (it also handles keyboard Enter).
+        onNodeClick={noop}
+      >
+        <Panel position="top-left">
+          <nav
+            aria-label={t('Breadcrumb')}
+            className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm shadow"
+            style={{ background: 'var(--surface)', color: 'var(--surface-fg)', borderColor: 'var(--border)' }}
           >
-            <img src={samurai} alt="SAMURAI" className="h-14 w-auto select-none" draggable={false} />
-          </button>
-          {focused && (
-            <>
-              <span style={{ color: brand.textMuted }}>›</span>
-              <span className="font-semibold">{focused.title}</span>
-              <span className="ml-2 text-xs" style={{ color: brand.textMuted }}>Esc to go back</span>
-            </>
-          )}
-        </div>
-      </Panel>
-
-      {!focused && (
-        <Panel position="bottom-center">
-          <div className="rounded px-2 py-1 text-xs text-white/90">Click a conversation to enter it</div>
+            {focused ? (
+              <>
+                <button type="button" onClick={() => setFocusId(null)} className="cursor-pointer font-medium hover:underline">
+                  {t('All conversations')}
+                </button>
+                <span aria-hidden style={{ color: 'var(--surface-muted)' }}>
+                  ›
+                </span>
+                <span className="font-semibold" aria-current="page">
+                  {t(focused.title)}
+                </span>
+                <span className="ml-2 hidden text-xs sm:inline" style={{ color: 'var(--surface-muted)' }}>
+                  {t('Esc to go back')}
+                </span>
+              </>
+            ) : (
+              <span className="font-semibold" aria-current="page">
+                {t('All conversations')} · #{channel.name}
+              </span>
+            )}
+          </nav>
         </Panel>
-      )}
 
-      <Panel position="top-right">
-        <div className="font-mono text-xs tracking-wider text-white/60">{brand.tag}</div>
-      </Panel>
+        {!focused && (
+          <Panel position="bottom-center">
+            <p className="rounded px-2 py-1 text-xs" style={{ color: 'var(--on-bg)' }}>
+              {t('Click or press Enter on a conversation to open it')}
+            </p>
+          </Panel>
+        )}
 
-      <Controls showInteractive={false} />
-    </ReactFlow>
+        <Panel position="top-right">
+          <p className="hidden font-mono text-xs tracking-wider sm:block" style={{ color: 'var(--on-bg-muted)' }}>
+            {brand.tag}
+          </p>
+        </Panel>
+
+        <Controls showInteractive={false} />
+      </ReactFlow>
+    </>
   )
 }
 
-export default function MindMap({ view }: { view: ChannelView }) {
+export default function MindMap() {
   return (
     <ReactFlowProvider>
-      <MapCanvas view={view} />
+      <MapCanvas />
     </ReactFlowProvider>
   )
 }

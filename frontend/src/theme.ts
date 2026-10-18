@@ -2,21 +2,19 @@
 import type { ClaimKind, TopicActivity, TopicKind, TopicStatus } from './types'
 
 // ---------- Brand ----------
+// Theme colors (backgrounds, arrows, panels) are CSS variables in index.css so light/dark
+// is one switch. Values here are the ones that stay the same in both themes.
 export const brand = {
   wine: '#3B0019', // logo color, RGB (59, 0, 25)
   logoCard: '#F6F5F0', // off-white behind the logo (matches the logo image)
-  card: '#EFE6E7', // conversation boxes
-  cardDormant: '#D8CACD', // quiet conversations look muted (not see-through)
-  text: '#2B0012',
+  card: 'var(--card)', // conversation boxes
+  cardDormant: 'var(--card-dormant)', // quiet conversations look muted (not see-through)
+  cardBorder: 'var(--card-border)',
+  text: '#2B0012', // text on cards (cards are light in both themes)
   textMuted: '#6B5560',
-  branch: '#FFFFFF', // dashed arrows
-  // Deep wine maroon: lightest behind the center, darkest at the edges, with a faint dot grid.
-  // Set to 'transparent' to let Discord's own background show through instead.
-  background: [
-    'radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px) 0 0 / 22px 22px',
-    'radial-gradient(circle at center, #4A0A1E 0%, #2A0612 55%, #12030A 100%)',
-  ].join(', '),
-  wheel: 'rgba(255,255,255,0.08)', // the faint turning wheel behind the center
+  branch: 'var(--branch)', // dashed arrows
+  background: 'var(--app-bg)',
+  wheel: 'var(--wheel)', // the faint turning wheel behind the center
   tag: 'MACS-HACKS · Reinvent the Wheel',
 }
 
@@ -35,7 +33,7 @@ export const chipLabel = {
 export const activityColor: Record<TopicActivity, string> = {
   active: '#0891B2',
   dormant: '#9CA3AF',
-  reopened: '#DB2777',
+  reopened: '#C2410C', // burnt orange (no pink in this design)
 }
 
 export const statusColor: Record<TopicStatus, string> = {
@@ -70,4 +68,5 @@ export const meaning: Record<string, string> = {
   discussion: 'Ideas and preferences, no clear sides',
   'off-topic': "Not about this channel's main work",
   'not sure': "The AI isn't confident about this one. Check the source messages.",
+  'decided by poll': 'The winning option of a Discord poll',
 }

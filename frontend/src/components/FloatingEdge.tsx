@@ -20,7 +20,7 @@ function exitPoint(b: ReturnType<typeof box>, tx: number, ty: number, gap = 8) {
   return { x: b.cx + dx * s, y: b.cy + dy * s }
 }
 
-export default function FloatingEdge({ id, source, target, markerEnd, style }: EdgeProps) {
+export default function FloatingEdge({ id, source, target, style }: EdgeProps) {
   const sourceNode = useInternalNode(source)
   const targetNode = useInternalNode(target)
   if (!sourceNode || !targetNode) return null
@@ -30,5 +30,20 @@ export default function FloatingEdge({ id, source, target, markerEnd, style }: E
   const start = exitPoint(a, b.cx, b.cy)
   const end = exitPoint(b, a.cx, a.cy)
 
-  return <BaseEdge id={id} path={`M ${start.x},${start.y} L ${end.x},${end.y}`} markerEnd={markerEnd} style={style} />
+  // Arrowhead drawn here (not as an SVG marker) so it can use the theme color variable.
+  const angle = Math.atan2(end.y - start.y, end.x - start.x)
+  const size = 11
+  const left = { x: end.x - size * Math.cos(angle - 0.45), y: end.y - size * Math.sin(angle - 0.45) }
+  const right = { x: end.x - size * Math.cos(angle + 0.45), y: end.y - size * Math.sin(angle + 0.45) }
+
+  return (
+    <>
+      <BaseEdge id={id} path={`M ${start.x},${start.y} L ${end.x},${end.y}`} style={style} />
+      <path
+        d={`M ${end.x},${end.y} L ${left.x},${left.y} L ${right.x},${right.y} Z`}
+        style={{ fill: 'var(--branch)', stroke: 'none' }}
+        aria-hidden
+      />
+    </>
+  )
 }
